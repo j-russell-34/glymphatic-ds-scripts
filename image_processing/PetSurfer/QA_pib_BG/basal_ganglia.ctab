@@ -1,0 +1,4 @@
+# Color table for basal ganglia regions
+# Format: index name R G B A
+0 Unknown 0 0 0 0
+1 Braak12 0 0 255 0 
