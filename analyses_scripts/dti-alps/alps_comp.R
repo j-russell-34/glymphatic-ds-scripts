@@ -241,10 +241,18 @@ alps_df <- left_join(alps_df, fam_df, by = c("subject", "event"))
 
 #fill in NA family values with unique numbers starting after the max family number
 max_family <- max(alps_df$family, na.rm = TRUE)
+
+# Create a mapping of subjects with NAs to new unique family IDs
+na_subject_mapping <- alps_df %>%
+  filter(is.na(family)) %>%
+  distinct(subject) %>%
+  mutate(new_family_id = row_number() + max_family)
+
+# Apply the mapping to fill NAs
 alps_df <- alps_df %>%
-  group_by(subject) %>%
-  mutate(family = ifelse(is.na(family), first(row_number()[is.na(family)]) + max_family - 1, family)) %>%
-  ungroup()
+  left_join(na_subject_mapping, by = "subject") %>%
+  mutate(family = ifelse(is.na(family), new_family_id, family)) %>%
+  dplyr::select(-new_family_id)
 
 #make family a factor
 alps_df$family <- as.factor(alps_df$family)
@@ -260,7 +268,7 @@ effects_df <- as.data.frame(Effect(c("age_at_visit", "group"), long_comparison))
 
 #plot linear model of alps by age_at_visit separated by group
 ggplot(alps_df, aes(x = age_at_visit, y = alps, color = group)) +
-  geom_point(data = alps_df, aes(x = age_at_visit, y = alps), alpha = 0.5, , size = 0.5) +
+  geom_point(data = alps_df, aes(x = age_at_visit, y = alps), alpha = 0.5, size = 0.5) +
   labs(x = "Age at Visit", y = "ALPS Index") +
   theme_minimal(base_size = 36) +
   geom_line(data = alps_df, aes(x = age_at_visit, y = alps, group = subject, color = group), size = 0.4, alpha = 0.3, inherit.aes = FALSE) +

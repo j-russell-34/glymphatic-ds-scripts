@@ -351,8 +351,23 @@ family_group <- long_sib_df %>%
 #left join family_group to fw_data on fsid
 fw_data <- left_join(fw_data, family_group, by = "fsid")
 
-#fill NA values in family with unique random numbers
-fw_data$family[is.na(fw_data$family)] <- max(fw_data$family, na.rm = TRUE) + seq_len(sum(is.na(fw_data$family)))
+#fill in NA family values with unique numbers starting after the max family number
+max_family <- max(fw_data$family, na.rm = TRUE)
+
+# Create a mapping of subjects with NAs to new unique family IDs
+na_subject_mapping <- fw_data %>%
+  filter(is.na(family)) %>%
+  distinct(subject) %>%
+  mutate(new_family_id = row_number() + max_family)
+
+# Apply the mapping to fill NAs
+fw_data <- fw_data %>%
+  left_join(na_subject_mapping, by = "subject") %>%
+  mutate(family = ifelse(is.na(family), new_family_id, family)) %>%
+  dplyr::select(-new_family_id)
+
+#make family a factor
+fw_data$family <- as.factor(fw_data$family)
 
 #plot longitudinal data
 

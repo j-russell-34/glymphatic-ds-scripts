@@ -212,10 +212,18 @@ alps_df <- left_join(alps_df, fam_df, by = c("subject", "event"))
 
 #fill in NA family values with unique numbers starting after the max family number
 max_family <- max(alps_df$family, na.rm = TRUE)
+
+# Create a mapping of subjects with NAs to new unique family IDs
+na_subject_mapping <- alps_df %>%
+  filter(is.na(family)) %>%
+  distinct(subject) %>%
+  mutate(new_family_id = row_number() + max_family)
+
+# Apply the mapping to fill NAs
 alps_df <- alps_df %>%
-  group_by(subject) %>%
-  mutate(family = ifelse(is.na(family), first(row_number()[is.na(family)]) + max_family - 1, family)) %>%
-  ungroup()
+  left_join(na_subject_mapping, by = "subject") %>%
+  mutate(family = ifelse(is.na(family), new_family_id, family)) %>%
+  dplyr::select(-new_family_id)
 
 #make family a factor
 alps_df$family <- as.factor(alps_df$family)
