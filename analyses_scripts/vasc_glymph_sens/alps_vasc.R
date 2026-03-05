@@ -6,7 +6,7 @@ library(ggtext)
 library(lme4)
 library(lmerTest)
 library(segmented)
-library(MuMIn)
+#library(MuMIn)
 library(svglite)
 library(nlme)
 library(effects)
@@ -146,60 +146,29 @@ pvs_df <- inner_join(pvs_df, wmh_df, by = "fsid")
 pvs_df <- pvs_df %>%
   drop_na()
 
+#split fsid to get subject and event_sequence back
+pvs_df <- pvs_df %>%
+  separate(fsid, into = c("subject", "event_sequence"), sep = "_e")
+
+#select BL visits as too few follow-up visits
+pvs_df <- pvs_df %>%
+  group_by(subject) %>%
+  filter(event_sequence == min(event_sequence)) %>%
+  ungroup()
+
 #lmem with alps as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
-lmem_pvs <- lmer(alps_harmonized ~ pvs_score + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
-summary(lmem_pvs)
-#lmem with choroid_plexus_FW as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
-lmem_pvs_cpfwf <- lmer(choroid_plexus_FW.combat ~ pvs_score + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
-summary(lmem_pvs_cpfwf)
+lm_pvs <- lm(alps_harmonized ~ pvs_score + age + sex + site_id, data = pvs_df)
+summary(lm_pvs)
+confint(lm_pvs, level = 0.95)
+
+
 
 #lmem with alps as outcome and total_wmh_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_wmh <- lmer(alps_harmonized ~ total_wmh_harmonized + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
+lmem_wmh <- lm(alps_harmonized ~ total_wmh_harmonized + age + sex + site_id, data = pvs_df)
 summary(lmem_wmh)
-#lmem with choroid_plexus_FW as outcome and total_wmh_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_wmh_cpfwf <- lmer(choroid_plexus_FW.combat ~ total_wmh_harmonized + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
-summary(lmem_wmh_cpfwf)
+confint(lmem_wmh, level = 0.95)
 
 
-#using effects package plot linear relationships
-cp_effect <- Effect(c("total_wmh_harmonized"), lmem_wmh_cpfwf)
-pred <- as.data.frame(cp_effect)
-
-plot <- ggplot(pred, aes(x = total_wmh_harmonized, y = fit)) +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = choroid_plexus_FW.combat
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = choroid_plexus_FW.combat,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total WMH Volume",
-       y = "CP-FWf"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{out_dir}/total_wmh_cpfwf_plot.svg"), plot, width = 10, height = 8)
 
 #plot non-sig effects as well for completeness
 plot <- ggplot() +
@@ -274,43 +243,6 @@ plot <- ggplot() +
   )
 
 ggsave(glue("{out_dir}/total_pvs_alps_plot.svg"), plot, width = 10, height = 8)
-
-#plot non-sig effects as well for completeness
-plot <- ggplot() +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = choroid_plexus_FW.combat
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = choroid_plexus_FW.combat,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total PVS Score",
-       y = "CP-FWf"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{out_dir}/total_pvs_cpfwf_plot.svg"), plot, width = 10, height = 8)
 
 
 #get demographics of main and subgroups

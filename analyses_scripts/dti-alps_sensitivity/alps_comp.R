@@ -6,7 +6,7 @@ library(ggtext)
 library(lme4)
 library(lmerTest)
 library(segmented)
-library(MuMIn)
+#library(MuMIn)
 library(svglite)
 library(nlme)
 library(effects)
@@ -164,6 +164,7 @@ alps_ds_w_sib_df_bl <- remove_unique_family(alps_ds_w_sib_df_bl)
 #run mixed effects model comparing groups in alps_ds_w_sib_df_bl
 bl_comparison_paired <- lme(alps ~ group + age_at_visit + de_gender + site, random = ~1|family, data = alps_ds_w_sib_df_bl, method = "REML")
 summary(bl_comparison_paired)
+intervals(bl_comparison_paired, which = "fixed")
 
 # Convert to wide format
 paired_data <- alps_ds_w_sib_df %>%
@@ -273,6 +274,7 @@ ggsave(glue("{out_dir}/alps_sens/alps_baseline_comparison_plot.svg"), width = 10
 #compare longitudinal change in alps by group with interaction of group and age_at_visit
 long_comparison <- lme(alps ~ group + age_at_visit + de_gender + site, data = alps_df, random = ~1|subject/family, method = "REML")
 summary(long_comparison)
+intervals(long_comparison, which = "fixed")
 
 long_comp_interaction <- lme(alps ~ group * age_at_visit + de_gender +site, data = alps_df, random = ~1|subject/family, method = "REML")
 summary(long_comp_interaction)
@@ -318,7 +320,7 @@ baseline_df_fam <- alps_df %>%
 # Linear model for baseline comparison with family as random effect
 bl_comparison_fam <- lme(alps ~ group + age_at_visit + de_gender + site, random = ~1|family, data = baseline_df_fam, method = "REML")
 summary(bl_comparison_fam)
-
+intervals(bl_comparison_fam, which = "fixed")
 
 #import mCRT cognitive data
 mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall.csv")
@@ -392,6 +394,7 @@ alps_mcrt_mod <- lme(
   method = "REML"
 )
 summary(alps_mcrt_mod)
+intervals(alps_mcrt_mod, which = "fixed")
 
 alps_dsmse_mod <- lme(
   fixed  = dsmse_to2 ~ alps + age_at_visit + de_gender + site + prefunclevel,
@@ -400,7 +403,7 @@ alps_dsmse_mod <- lme(
   method = "REML"
 )
 summary(alps_dsmse_mod)
-
+intervals(alps_dsmse_mod, which = "fixed")
 # Get baseline ALPS (first visit per subject)
 baseline_alps <- alps_df_cog %>%
   group_by(subject) %>%

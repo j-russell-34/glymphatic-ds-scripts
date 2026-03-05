@@ -343,6 +343,7 @@ cp_mod_bl <- lme(
   method = "REML"
 )
 summary(cp_mod_bl)
+intervals(cp_mod_bl, which = "fixed")
 
 # From long_sib_df, select fsid, family
 family_group <- long_sib_df %>%
@@ -375,9 +376,11 @@ fw_data$family <- as.factor(fw_data$family)
 #compare longitudinal change in fw by group with interaction of group and age_at_visit
 long_comparison <- lme(choroid_plexus_FW.combat ~ group + age + de_gender + site, data = fw_data, random = ~1|family/subject, method = "REML")
 summary(long_comparison)
+intervals(long_comparison, which = "fixed")
 
 long_comp_interaction <- lme(choroid_plexus_FW.combat ~ group * age + de_gender + site, data = fw_data, random = ~1|family/subject, method = "REML")
 summary(long_comp_interaction)
+intervals(long_comp_interaction, which = "fixed")
 
 #get min_visit_number for each subject
 fw_data <- fw_data %>%
@@ -392,6 +395,7 @@ baseline_df_fam <- fw_data %>%
 # Linear model for baseline comparison with family as random effect
 bl_comparison_fam <- lme(choroid_plexus_FW.combat ~ group + age + de_gender + site, random = ~1|family, data = baseline_df_fam, method = "REML")
 summary(bl_comparison_fam)
+intervals(bl_comparison_fam, which = "fixed")
 
 effects_df <- as.data.frame(Effect(c("age", "group"), long_comparison, xlevels = list(age = seq(min(fw_data$age), max(fw_data$age), length.out = 100))))
 
@@ -424,61 +428,6 @@ ggplot(fw_data, aes(x = age, y = choroid_plexus_FW.combat, color = group)) +
   )
 
 ggsave(glue("{out_dir}/choroid_plexus_FW_longitudinal_comparison_plot.svg"), width = 10, height = 8)
-
-#import mCRT cognitive data
-mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall.csv")
-
-#make fsid column by pasting subject and event_sequence with _e in between
-mcrt_data <- mcrt_data %>%
-  mutate(fsid = paste(subject_label, event_sequence, sep = "_e"))
-
-#select fsid and trs from mCRT
-mcrt_data <- mcrt_data %>%
-  dplyr::select(fsid, trs)
-
-#inner join mcrt_data to fw_data by fsid
-fw_data_cog <- inner_join(fw_data, mcrt_data, by = "fsid")
-
-#drop rows with NA in trs
-fw_data_cog <- fw_data_cog %>%
-  drop_na(trs)
-
-
-#same analysis for choroid plexus fw
-cp_cog_mod <- lme(
-  fixed  = trs ~ choroid_plexus_FW.combat + age + de_gender + site,
-  random = ~ 1 | subject,
-  data   = fw_data_cog,
-  method = "REML"
-)
-summary(cp_cog_mod)
-
-#plot linear relationship between choroid_plexus_FW.combat and trs using effects package
-cp_cog_effects <- Effect("choroid_plexus_FW.combat", cp_cog_mod, xlevels = list(choroid_plexus_FW.combat = seq(min(fw_data_cog$choroid_plexus_FW.combat), max(fw_data_cog$choroid_plexus_FW.combat), length.out = 100)))
-effects_df <- as.data.frame(cp_cog_effects)
-# Plot
-ggplot() +
-    # 1. Add the individual data points
-    geom_point(data = fw_data_cog, 
-               aes(x = choroid_plexus_FW.combat, y = trs),
-               alpha = 0.5) +
-    # join points with lines for each subject
-    geom_line(data = fw_data_cog,
-              aes(x = choroid_plexus_FW.combat, y = trs, group = subject),
-              alpha = 0.3, inherit.aes = FALSE) +
-    # 2. Add the population fixed effects line
-    geom_line(data = effects_df, aes(x = choroid_plexus_FW.combat, y = fit), color = "red", size = 1.2) +
-    labs(x = "CP-FWf", y = "mCRT Total Recall Score") +
-    theme_minimal(base_size = 36) +
-    theme(
-        panel.grid = element_blank(),
-        axis.line = element_line(color = "black"),
-        axis.title = element_text(face = "bold"),
-        panel.background = element_rect(fill = "white", color = NA),
-        plot.background = element_rect(fill = "white", color = NA)
-    ) +
-    coord_cartesian(clip = "off")
-ggsave(glue("{out_dir}/cp_fw_cog_relationship_plot.svg"), width = 10, height = 8)
 
 # Add min_visit_number column for each subject
 fw_data <- fw_data %>%
@@ -518,3 +467,4 @@ t_test_sex_fw <- t.test(choroid_plexus_FW.combat ~ de_gender, data = fw_data_ds)
 print(t_test_sex_fw)
 lme_sex_fw <- lme(choroid_plexus_FW.combat ~ de_gender + age + site, random = ~1|subject, data = fw_data_ds, method = "REML")
 summary(lme_sex_fw)
+intervals(lme_sex_fw, which = "fixed")

@@ -4,7 +4,7 @@ library(glue)
 library(lme4)
 library(lmerTest)
 library(segmented)
-library(MuMIn)
+#library(MuMIn)
 library(svglite)
 library(nlme)
 library(effects)
@@ -162,47 +162,52 @@ ggsave(glue("{out_dir}/alps/alps_lmm_plot.svg"), width = 10, height = 8)
 alps_amyloid_df <- inner_join(alps_df, amyloid_df, by = "fsid")
 
 #lmem comparing age and alps and amyloid
-alps_amyloid_lmem <- lme(fixed = Centiloids ~ alps + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
-summary(alps_amyloid_lmem)
+#alps_amyloid_lmem <- lme(fixed = Centiloids ~ alps + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
+#summary(alps_amyloid_lmem)
 
 #lmem comparing age and alps and amyloid
 amyloid_alps_lmem <- lme(fixed = alps ~ Centiloids + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
 summary(amyloid_alps_lmem)
+intervals(amyloid_alps_lmem, which = "fixed")
 
 #join alps with volumetric data
 alps_volumetric_df <- inner_join(alps_df, volumetric_df, by = "fsid")
 
 #lmem comparing age and alps and volumetric
-alps_volumetric_lmem <- lme(fixed = basal_forebrain_norm ~ alps + age + sex + site, random = ~1|subject, data = alps_volumetric_df, method = "REML")
-summary(alps_volumetric_lmem)
+#alps_volumetric_lmem <- lme(fixed = basal_forebrain_norm ~ alps + age + sex + site, random = ~1|subject, data = alps_volumetric_df, method = "REML")
+#summary(alps_volumetric_lmem)
 
 #lmem comparing ALPs and fw
 alps_cp_lmem <- lme(fixed = alps ~ choroid_plexus_FW.combat + age +  sex + site, random = ~1|subject, data = alps_df, method = "REML")
 summary(alps_cp_lmem)
+intervals(alps_cp_lmem, which = "fixed")
 
 #lmem comparing ALPs and wm FW
-alps_wm_lmem <- lme(fixed = alps ~ wm_FW.combat + age +  sex + site, random = ~1|subject, data = alps_df, method = "REML")
-summary(alps_wm_lmem)
+#alps_wm_lmem <- lme(fixed = alps ~ wm_FW.combat + age +  sex + site, random = ~1|subject, data = alps_df, method = "REML")
+#summary(alps_wm_lmem)
 
 #join tau data
 alps_tau_df <- inner_join(alps_df, tau_df, by = "fsid")
 #lmem comparing age and alps and tau
 alps_tau_lmem <- lme(fixed = alps ~ metatemporal + age.x + sex + site, random = ~1|subject, data = alps_tau_df, method = "REML")
 summary(alps_tau_lmem)
+intervals(alps_tau_lmem, which = "fixed")
 
 #relationships between WM and amyloid and tau
 #lmem comparing wm FW and amyloid
-wm_amyloid_lmem <- lme(fixed = wm_FW.combat ~ Centiloids + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
-summary(wm_amyloid_lmem)
+#wm_amyloid_lmem <- lme(fixed = wm_FW.combat ~ Centiloids + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
+#summary(wm_amyloid_lmem)
 #lmem comparing cp FW and amyloid
 cp_amyloid_lmem <- lme(fixed = choroid_plexus_FW.combat ~ Centiloids + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
 summary(cp_amyloid_lmem)
+intervals(cp_amyloid_lmem, which = "fixed")
 #lmem comparing wm FW and tau
-wm_tau_lmem <- lme(fixed = wm_FW.combat ~ metatemporal + age.x + sex + site, random = ~1|subject, data = alps_tau_df, method = "REML")  
-summary(wm_tau_lmem)
+#wm_tau_lmem <- lme(fixed = wm_FW.combat ~ metatemporal + age.x + sex + site, random = ~1|subject, data = alps_tau_df, method = "REML")  
+#summary(wm_tau_lmem)
 #lmem comparing cp FW and tau
 cp_tau_lmem <- lme(fixed = choroid_plexus_FW.combat ~ metatemporal + age.x + sex + site, random = ~1|subject, data = alps_tau_df, method = "REML")
 summary(cp_tau_lmem)
+intervals(cp_tau_lmem, which = "fixed")
 
 #plot sig WMH relationships with alps, amyloid and tau --------------------------------------
 #alps vs cp FW
@@ -462,6 +467,7 @@ alps_mcrt_mod <- lme(
   method = "REML"
 )
 summary(alps_mcrt_mod)
+intervals(alps_mcrt_mod, which = "fixed")
 
 alps_dsmse_mod <- lme(
   fixed  = dsmse_to2 ~ choroid_plexus_FW.combat + age_at_visit + de_gender + site + prefunclevel,
@@ -470,6 +476,7 @@ alps_dsmse_mod <- lme(
   method = "REML"
 )
 summary(alps_dsmse_mod)
+intervals(alps_dsmse_mod, which = "fixed")
 
 #create prediction dataframe for mcrt model
 pred <- as.data.frame(Effect("choroid_plexus_FW.combat", alps_mcrt_mod))

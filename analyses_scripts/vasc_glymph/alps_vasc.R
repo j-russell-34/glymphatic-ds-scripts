@@ -6,7 +6,7 @@ library(ggtext)
 library(lme4)
 library(lmerTest)
 library(segmented)
-library(MuMIn)
+#library(MuMIn)
 library(svglite)
 library(nlme)
 library(effects)
@@ -132,21 +132,31 @@ pvs_df <- inner_join(pvs_df, wmh_df, by = "fsid")
 pvs_df <- pvs_df %>%
   drop_na()
 
-#lmem with alps as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
-lmem_pvs <- lmer(alps_harmonized ~ pvs_score + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
-summary(lmem_pvs)
-#lmem with choroid_plexus_FW as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
-lmem_pvs_cpfwf <- lmer(choroid_plexus_FW.combat ~ pvs_score + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
-summary(lmem_pvs_cpfwf)
+#select BL visits as too few participants with follow-up data
+pvs_df <- pvs_df %>%
+  group_by(subject) %>%
+  filter(event_sequence == min(event_sequence)) %>%
+  ungroup()
 
+#lmem with alps as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
+lmem_pvs <- lme(alps_harmonized ~ pvs_score + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
+summary(lmem_pvs)
+intervals(lmem_pvs, which = "fixed")
+
+#lmem with choroid_plexus_FW as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
+lmem_pvs_cpfwf <- lme(choroid_plexus_FW.combat ~ pvs_score + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
+summary(lmem_pvs_cpfwf)
+intervals(lmem_pvs_cpfwf, which = "fixed")
 
 #lmem with alps as outcome and total_wmh_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_wmh <- lmer(alps_harmonized ~ total_wmh_harmonized + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
+lmem_wmh <- lme(alps_harmonized ~ total_wmh_harmonized + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
 summary(lmem_wmh)
-#lmem with choroid_plexus_FW as outcome and total_wmh_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_wmh_cpfwf <- lmer(choroid_plexus_FW.combat ~ total_wmh_harmonized + age + sex + site_id + (1|subject), data = pvs_df, REML = TRUE)
-summary(lmem_wmh_cpfwf)
+intervals(lmem_wmh, which = "fixed")
 
+#lmem with choroid_plexus_FW as outcome and total_wmh_harmonized, age, sex as fixed effects and site_id as random effect
+lmem_wmh_cpfwf <- lme(choroid_plexus_FW.combat ~ total_wmh_harmonized + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
+summary(lmem_wmh_cpfwf)
+intervals(lmem_wmh_cpfwf, which = "fixed")
 
 #using effects package plot linear relationship
 

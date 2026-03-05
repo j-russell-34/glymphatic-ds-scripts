@@ -6,7 +6,7 @@ library(ggtext)
 library(lme4)
 library(lmerTest)
 library(segmented)
-library(MuMIn)
+#library(MuMIn)
 library(svglite)
 library(nlme)
 library(effects)
@@ -134,12 +134,9 @@ merged_df <- merged_df %>%
   drop_na()
 
 #lmem with basal ganglia pib as outcome and alps_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_bg_bgpib <- lmer(alps_harmonized ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
+lmem_bg_bgpib <- lme(alps_harmonized ~ Basal_Ganglia_SUVR.combat + age + sex + site_id, random = ~1|subject, data = merged_df, method = "REML")
 summary(lmem_bg_bgpib)
-
-#lmem with basal ganglia pib as outcome and choroid_plexus_FW.combat, age, sex as fixed effects and site_id as random effect
-lmem_cp_bgpib <- lmer(choroid_plexus_FW.combat ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
-summary(lmem_cp_bgpib)
+intervals(lmem_bg_bgpib, which = "fixed")
 
 #using effects package plot linear relationship between alps_harmonized and Basal_Ganglia_SUVR.combat
 
@@ -182,37 +179,3 @@ plot <- ggplot(pred, aes(x = Basal_Ganglia_SUVR.combat, y = fit)) +
 
 ggsave(glue("{bg_dir}/bg_alps_plot.svg"), plot, width = 10, height = 8)
 
-plot <- ggplot() +
-  geom_point(
-    data = merged_df,
-    mapping = aes(
-      x = Basal_Ganglia_SUVR.combat,
-      y = choroid_plexus_FW.combat
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = merged_df,
-    mapping = aes(
-      x = Basal_Ganglia_SUVR.combat,
-      y = choroid_plexus_FW.combat,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  labs(x = "BG PiB SUVR",
-       y = "CP-FWf"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{bg_dir}/bg_cpfw_plot.svg"), plot, width = 10, height = 8)

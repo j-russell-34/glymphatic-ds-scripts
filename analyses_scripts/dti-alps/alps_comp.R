@@ -6,7 +6,7 @@ library(ggtext)
 library(lme4)
 library(lmerTest)
 library(segmented)
-library(MuMIn)
+#library(MuMIn)
 library(svglite)
 library(nlme)
 library(effects)
@@ -68,12 +68,15 @@ alps_df <- inner_join(alps_df, wmh_overlap, by = "fsid")
 
 
 #run t-test comparing alps by group
-group_comparison <- lme(fixed = alps ~ group + age_at_visit + de_gender + site, 
-                       random = ~1|subject, 
-                       data = alps_df, 
-                       method = "REML")
+#group_comparison <- lme(fixed = alps ~ group + age_at_visit + de_gender + site, 
+#                       random = ~1|subject, 
+#                       data = alps_df, 
+#                       method = "REML")
 
-summary(group_comparison)
+
+#summary(group_comparison)
+
+#intervals(group_comparison, which = "fixed")
 
 # Add min_visit_number column for each subject
 alps_df <- alps_df %>%
@@ -193,6 +196,7 @@ alps_ds_w_sib_df_bl <- remove_unique_family(alps_ds_w_sib_df_bl)
 #run mixed effects model comparing groups in alps_ds_w_sib_df_bl
 bl_comparison_paired <- lme(alps ~ group + age_at_visit + de_gender + site, random = ~1|family, data = alps_ds_w_sib_df_bl, method = "REML")
 summary(bl_comparison_paired)
+intervals(bl_comparison_paired, which = "fixed")
 
 # Convert to wide format for paired t-test
 paired_data <- alps_ds_w_sib_df %>%
@@ -260,9 +264,11 @@ alps_df$family <- as.factor(alps_df$family)
 #compare longitudinal change in alps by group with interaction of group and age_at_visit
 long_comparison <- lme(alps ~ group + age_at_visit + de_gender + site, data = alps_df, random = ~1|subject/family, method = "REML")
 summary(long_comparison)
+intervals(long_comparison, which = "fixed")
 
 long_comp_interaction <- lme(alps ~ group * age_at_visit + de_gender +site, data = alps_df, random = ~1|subject/family, method = "REML")
 summary(long_comp_interaction)
+intervals(long_comp_interaction, which = "fixed")
 
 effects_df <- as.data.frame(Effect(c("age_at_visit", "group"), long_comparison))
 
@@ -305,7 +311,7 @@ baseline_df_fam <- alps_df %>%
 # Linear model for baseline comparison with family as random effect
 bl_comparison_fam <- lme(alps ~ group + age_at_visit + de_gender + site, random = ~1|family, data = baseline_df_fam, method = "REML")
 summary(bl_comparison_fam)
-
+intervals(bl_comparison_fam, which = "fixed")
 
 
 #import mCRT cognitive data
@@ -380,6 +386,7 @@ alps_mcrt_mod <- lme(
   method = "REML"
 )
 summary(alps_mcrt_mod)
+intervals(alps_mcrt_mod, which = "fixed")
 
 alps_dsmse_mod <- lme(
   fixed  = dsmse_to2 ~ alps + age_at_visit + de_gender + site + prefunclevel,
@@ -388,7 +395,7 @@ alps_dsmse_mod <- lme(
   method = "REML"
 )
 summary(alps_dsmse_mod)
-
+intervals(alps_dsmse_mod, which = "fixed")
 
 #plot alps by mcrt trs
 ggplot() +
@@ -590,3 +597,4 @@ t_test_sex_alps <- t.test(alps ~ de_gender, data = alps_df_ds)
 print(t_test_sex_alps)
 lme_sex_alps <- lme(alps ~ de_gender + age_at_visit + site, random = ~1|subject, data = alps_df_ds, method = "REML")
 summary(lme_sex_alps)
+intervals(lme_sex_alps, which = "fixed")
