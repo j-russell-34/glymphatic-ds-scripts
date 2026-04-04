@@ -78,6 +78,109 @@ wmh_overlap <- wmh_overlap %>%
 alps_df <- inner_join(alps_df, wmh_overlap, by = "fsid")
 
 
+#run t-test comparing alps by group
+group_comparison <- lme(fixed = alps ~ group + age_at_visit + de_gender + site, 
+                       random = ~1|subject, 
+                       data = alps_df, 
+                       method = "REML")
+
+summary(group_comparison)
+
+# Add min_visit_number column for each subject
+alps_df <- alps_df %>%
+  group_by(subject) %>%
+  mutate(min_visit_number = min(event)) %>%
+  ungroup()
+
+# Now filter for baseline
+baseline_df <- alps_df %>%
+  filter(event == min_visit_number)
+
+
+
+#violin plot of alps by group
+ggplot(baseline_df, aes(x = group, y = alps, color = group)) +
+  geom_point(data = baseline_df, aes(x = group, y = alps, color = group), position = position_jitter(width = 0.2), size = 0.5) +
+  stat_summary(fun = mean, geom = "point", size = 5, color = "black") +
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.4, color = "black") +
+  labs(x = "Group", y = "ALPS Index") +
+  scale_x_discrete(labels = c("1" = "DS", "2" = "SC")) +
+  theme_minimal() +
+    theme_minimal(base_size = 36) +
+    theme(
+        axis.title.y = element_markdown(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = "black"),
+        axis.title = element_text(face = "bold"),
+        panel.background = element_rect(fill = "white", color = NA),
+        plot.background = element_rect(fill = "white", color = NA),
+        legend.position = "none"
+    )
+
+ggsave(glue("{out_dir}/alps_sens/alps_baseline_comparison_plot.svg"), width = 10, height = 8)
+
+
+#compare longitudinal change in alps by group with interaction of group and age_at_visit
+long_comparison <- lme(alps ~ group + age_at_visit + de_gender + site, data = alps_df, random = ~1|subject, method = "REML")
+summary(long_comparison)
+
+long_comp_interaction <- lme(alps ~ group * age_at_visit + de_gender +site, data = alps_df, random = ~1|subject, method = "REML")
+summary(long_comp_interaction)
+
+#estimate the effects for plotting of the interaction model
+long_comp_interaction_effects <- Effect(c("age_at_visit", "group"), long_comp_interaction, xlevels = list(age_at_visit = unique(alps_df$age_at_visit), group = unique(alps_df$group)))
+effects_df <- as.data.frame(long_comp_interaction_effects)
+
+# Calculate slopes for each group
+# Convert group to character to avoid factor level issues
+effects_df$group <- as.character(effects_df$group)
+alps_df$group <- as.character(alps_df$group)
+
+group1_data <- effects_df[effects_df$group == unique(alps_df$group)[1], ]
+group2_data <- effects_df[effects_df$group == unique(alps_df$group)[2], ]
+
+# Calculate slope (change in ALPS per year of age)
+group1_slope <- (group1_data$fit[nrow(group1_data)] - group1_data$fit[1]) / 
+                (group1_data$age_at_visit[nrow(group1_data)] - group1_data$age_at_visit[1])
+group2_slope <- (group2_data$fit[nrow(group2_data)] - group2_data$fit[1]) / 
+                (group2_data$age_at_visit[nrow(group2_data)] - group2_data$age_at_visit[1])
+
+# Print slope calculations
+cat("\nSlope (ALPS change per year of age):\n")
+cat("Group", unique(alps_df$group)[1], ":", round(group1_slope, 4), "\n")
+cat("Group", unique(alps_df$group)[2], ":", round(group2_slope, 4), "\n")
+cat("Difference in slopes:", round(group1_slope - group2_slope, 4), "\n")
+
+#plot linear model of alps by age_at_visit separated by group
+ggplot(alps_df, aes(x = age_at_visit, y = alps, color = group)) +
+  geom_point(data = alps_df, aes(x = age_at_visit, y = alps), alpha = 0.5, , size = 0.5) +
+  labs(x = "Age at Visit", y = "ALPS Index") +
+  theme_minimal(base_size = 36) +
+  geom_line(data = alps_df, aes(x = age_at_visit, y = alps, group = subject, color = group), size = 0.4, alpha = 0.3, inherit.aes = FALSE) +
+  geom_ribbon(data = effects_df, 
+              aes(x = age_at_visit, ymin = lower, ymax = upper, fill = group), 
+              alpha = 0.2, inherit.aes = FALSE) +
+  geom_line(data = effects_df, 
+            aes(x = age_at_visit, y = fit, color = group), 
+            size = 1.5) +
+
+  scale_color_discrete(labels = c("1" = "DS", "2" = "SC")) +
+  scale_fill_discrete(labels = c("1" = "DS", "2" = "SC")) +
+  theme(
+    axis.title.y = element_markdown(),
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.title = element_text(face = "bold"),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    legend.text = element_text(size = 20, face = "bold"),
+    legend.title = element_blank(),
+    legend.key.height = unit(1.5, "cm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0)
+  )
+
+ggsave(glue("{out_dir}/alps_sens/alps_longitudinal_comparison_plot.svg"), width = 10, height = 8)
 
 
 #import the control_match csv
@@ -164,9 +267,8 @@ alps_ds_w_sib_df_bl <- remove_unique_family(alps_ds_w_sib_df_bl)
 #run mixed effects model comparing groups in alps_ds_w_sib_df_bl
 bl_comparison_paired <- lme(alps ~ group + age_at_visit + de_gender + site, random = ~1|family, data = alps_ds_w_sib_df_bl, method = "REML")
 summary(bl_comparison_paired)
-intervals(bl_comparison_paired, which = "fixed")
 
-# Convert to wide format
+# Convert to wide format for paired t-test
 paired_data <- alps_ds_w_sib_df %>%
   pivot_wider(
     names_from = group, 
@@ -181,6 +283,10 @@ paired_data <- paired_data %>%
   group_by(family) %>%
   filter(event == min(event)) %>%
   ungroup()
+
+# Run paired t-test
+#t_test_result <- t.test(paired_data$group_1, paired_data$group_2, paired = TRUE)
+#print(t_test_result)
 
 #pivot paired data to long format
 paired_data <- paired_data %>%
@@ -229,89 +335,9 @@ alps_df <- alps_df %>%
 #make family a factor
 alps_df$family <- as.factor(alps_df$family)
 
-#run group comarison
-group_comparison <- lme(fixed = alps ~ group + age_at_visit + de_gender + site, 
-                       random = ~1|subject/family, 
-                       data = alps_df, 
-                       method = "REML")
-
-summary(group_comparison)
-
-# Add min_visit_number column for each subject
-alps_df <- alps_df %>%
-  group_by(subject) %>%
-  mutate(min_visit_number = min(event)) %>%
-  ungroup()
-
-# Now filter for baseline
-baseline_df <- alps_df %>%
-  filter(event == min_visit_number)
-
-
-
-#plot of alps by group
-ggplot(baseline_df, aes(x = group, y = alps, color = group)) +
-  geom_point(data = baseline_df, aes(x = group, y = alps, color = group), position = position_jitter(width = 0.2), size = 0.5) +
-  stat_summary(fun = mean, geom = "point", size = 5, color = "black") +
-  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.4, color = "black") +
-  labs(x = "Group", y = "ALPS Index") +
-  scale_x_discrete(labels = c("1" = "DS", "2" = "SC")) +
-  theme_minimal() +
-    theme_minimal(base_size = 36) +
-    theme(
-        axis.title.y = element_markdown(),
-        panel.grid = element_blank(),
-        axis.line = element_line(color = "black"),
-        axis.title = element_text(face = "bold"),
-        panel.background = element_rect(fill = "white", color = NA),
-        plot.background = element_rect(fill = "white", color = NA),
-        legend.position = "none"
-    )
-
-ggsave(glue("{out_dir}/alps_sens/alps_baseline_comparison_plot.svg"), width = 10, height = 8)
-
-
-#compare longitudinal change in alps by group with interaction of group and age_at_visit
-long_comparison <- lme(alps ~ group + age_at_visit + de_gender + site, data = alps_df, random = ~1|subject/family, method = "REML")
-summary(long_comparison)
-intervals(long_comparison, which = "fixed")
-
-long_comp_interaction <- lme(alps ~ group * age_at_visit + de_gender +site, data = alps_df, random = ~1|subject/family, method = "REML")
-summary(long_comp_interaction)
-
-effects_df <- as.data.frame(Effect(c("age_at_visit", "group"), long_comparison))
-
-#plot linear model of alps by age_at_visit separated by group
-ggplot(alps_df, aes(x = age_at_visit, y = alps, color = group)) +
-  geom_point(data = alps_df, aes(x = age_at_visit, y = alps), alpha = 0.5, , size = 0.5) +
-  labs(x = "Age at Visit", y = "ALPS Index") +
-  theme_minimal(base_size = 36) +
-  geom_line(data = alps_df, aes(x = age_at_visit, y = alps, group = subject, color = group), size = 0.4, alpha = 0.3, inherit.aes = FALSE) +
-  geom_ribbon(data = effects_df, 
-              aes(x = age_at_visit, ymin = lower, ymax = upper, fill = group), 
-              alpha = 0.2, inherit.aes = FALSE) +
-  geom_line(data = effects_df, 
-            aes(x = age_at_visit, y = fit, color = group), 
-            size = 1.5) +
-
-  scale_color_discrete(labels = c("1" = "DS", "2" = "SC")) +
-  scale_fill_discrete(labels = c("1" = "DS", "2" = "SC")) +
-  theme(
-    axis.title.y = element_markdown(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA),
-    legend.text = element_text(size = 20, face = "bold"),
-    legend.title = element_blank(),
-    legend.key.height = unit(1.5, "cm"),
-    legend.margin = margin(0, 0, 0, 0),
-    legend.box.margin = margin(0, 0, 0, 0)
-  )
-
-ggsave(glue("{out_dir}/alps_sens/alps_longitudinal_comparison_plot.svg"), width = 10, height = 8)
-
+#mixed effects model for longitudinal comparison with family as random effect
+long_comparison_fam <- lme(alps ~ group + age_at_visit + de_gender + site, random = ~1|subject/family, data = alps_df, method = "REML")
+summary(long_comparison_fam)
 
 # Make baseline_df with family
 baseline_df_fam <- alps_df %>%
@@ -320,16 +346,17 @@ baseline_df_fam <- alps_df %>%
 # Linear model for baseline comparison with family as random effect
 bl_comparison_fam <- lme(alps ~ group + age_at_visit + de_gender + site, random = ~1|family, data = baseline_df_fam, method = "REML")
 summary(bl_comparison_fam)
-intervals(bl_comparison_fam, which = "fixed")
+
+
 
 #import mCRT cognitive data
-mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall.csv")
+mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall_25Mar2026.csv")
 
 #import dsmse data
 dsmse_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Down_Syndrome_Mental_Status_Exam.csv")
 
 #import premorbid iq data
-premorbid_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Premorbid_Functioning_Level.csv")
+premorbid_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Premorbid_Functioning_Level_25Mar2026.csv")
 
 #make fsid column by pasting subject_label and event_sequence with _e in between
 premorbid_data <- premorbid_data %>%
@@ -394,7 +421,6 @@ alps_mcrt_mod <- lme(
   method = "REML"
 )
 summary(alps_mcrt_mod)
-intervals(alps_mcrt_mod, which = "fixed")
 
 alps_dsmse_mod <- lme(
   fixed  = dsmse_to2 ~ alps + age_at_visit + de_gender + site + prefunclevel,
@@ -403,7 +429,7 @@ alps_dsmse_mod <- lme(
   method = "REML"
 )
 summary(alps_dsmse_mod)
-intervals(alps_dsmse_mod, which = "fixed")
+
 # Get baseline ALPS (first visit per subject)
 baseline_alps <- alps_df_cog %>%
   group_by(subject) %>%
@@ -428,6 +454,10 @@ alps_cog_long <- mcrt_data %>%
 alps_cog_long <- alps_cog_long %>%
   mutate(time_since_baseline = age_at_visit - baseline_age)
 
+
+# Linear model for baseline comparison
+bl_comparison <- lme(alps ~ group + age_at_visit + de_gender + site, data = baseline_df_fam, random = ~1|family, method = "REML")
+summary(bl_comparison)
 
 #plot alps by mcrt trs
 ggplot() +
@@ -620,4 +650,103 @@ print(t_test_fw)
 #kruskal wallis test comparing visits_per_subject by group in full_bl_df
 kruskal_test_visits <- kruskal.test(visits_per_subject ~ group, data = full_bl_df)
 print(kruskal_test_visits)
+
+
+#assess different componenets of alps
+#load the dz summary csv
+dz_df <- read_csv(glue("{in_dir}/alps/harmonized/dz_summary_harmonized.csv"))
+
+#select fsid, dz_x_assoc, dz_y_proj, dz_z_assoc, dz_x_proj
+dz_df <- dz_df %>%
+  dplyr::select(fsid, dz_x_assoc, dz_y_proj, dz_z_assoc, dz_x_proj)
+
+#merge dz_df with alps_df by fsid
+alps_dz_df <- inner_join(alps_df, dz_df, by = "fsid")
+
+#get baseline visits for alps_dz_df
+alps_dz_bl_df <- alps_dz_df %>%
+  group_by(subject) %>%
+  filter(event == min(event)) %>%
+  ungroup()
+
+#run linear mixed models
+dx_assoc_model <- lme(
+  fixed  = dz_x_assoc ~ group + age_at_visit + de_gender + site,
+  random = ~ 1 | subject/family,
+  data   = alps_dz_bl_df,
+  method = "REML"
+)
+summary(dx_assoc_model)
+
+dy_proj_model <- lme(
+  fixed  = dz_y_proj ~ group + age_at_visit + de_gender + site,
+  random = ~ 1 | subject/family,
+  data   = alps_dz_bl_df,
+  method = "REML"
+)
+summary(dy_proj_model)
+
+dz_assoc_model <- lme(
+  fixed  = dz_z_assoc ~ group + age_at_visit +  de_gender + site,
+  random = ~ 1 | subject/family,
+  data   = alps_dz_bl_df,
+  method = "REML"
+)
+summary(dz_assoc_model)
+
+dx_proj_model <- lme(
+  fixed  = dz_x_proj ~ group + age_at_visit + de_gender + site,
+  random = ~ 1 | subject/family,
+  data   = alps_dz_bl_df,
+  method = "REML"
+)
+summary(dx_proj_model)
+
+#get means of dz components by group
+dz_means <- alps_dz_bl_df %>%
+  group_by(group) %>%
+  summarise(
+    mean_dz_x_assoc = mean(dz_x_assoc, na.rm = TRUE),
+    mean_dz_y_proj = mean(dz_y_proj, na.rm = TRUE),
+    mean_dz_z_assoc = mean(dz_z_assoc, na.rm = TRUE),
+    mean_dz_x_proj = mean(dz_x_proj, na.rm = TRUE)
+  )
+print(dz_means)
+
+#longitudinal effects of age on dz components
+#select group 1
+group_1_df <- alps_dz_df %>%
+  filter(group == 1)
+
+dx_assoc_long_model <- lme(
+  fixed  = dz_x_assoc ~ age_at_visit + de_gender + site,
+  random = ~ 1 | subject,
+  data   = group_1_df,
+  method = "REML"
+)
+summary(dx_assoc_long_model)
+
+dy_proj_long_model <- lme(
+  fixed  = dz_y_proj ~ age_at_visit + de_gender + site,
+  random = ~ 1 | subject,
+  data   = group_1_df,
+  method = "REML"
+) 
+summary(dy_proj_long_model)
+
+dz_assoc_long_model <- lme(
+  fixed  = dz_z_assoc ~ age_at_visit + de_gender + site,
+  random = ~ 1 | subject,
+  data   = group_1_df,
+  method = "REML"
+)
+summary(dz_assoc_long_model)
+
+dx_proj_long_model <- lme(
+  fixed  = dz_x_proj ~ age_at_visit + de_gender + site,
+  random = ~ 1 | subject,
+  data   = group_1_df,
+  method = "REML"
+)
+summary(dx_proj_long_model)
 

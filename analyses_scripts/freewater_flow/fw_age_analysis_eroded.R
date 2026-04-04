@@ -12,7 +12,7 @@ harmonized_data <- "/Users/jasonkru/Documents/outputs/ABCDS/fw/harmonized"
 alps_dir <- "/Users/jasonkru/Documents/outputs/ABCDS/alps"
 
 #load in the concatenated freewater data
-fw_data <- read_csv(paste0(harmonized_data, "/fw_summary_harmonized.csv"))
+fw_data <- read_csv(paste0(harmonized_data, "/fw_eroded_summary_harmonized.csv"))
 alps_df <- read_csv(glue("{alps_dir}/harmonized/alps_summary_harmonized.csv"))
 
 #make fsid column by pasting subject and event_sequence with _e in between
@@ -39,7 +39,6 @@ alps_df <- alps_df %>%
 #inner join alps_df and fw_data by fsid
 fw_data <- inner_join(fw_data, alps_df, by = "fsid")
 
-#plot wm_FW_combat vs age_at_visit as inflection point model
 #remove scan_type_site.y column if it exists
 if("scan_type_site.y" %in% colnames(fw_data)){
   fw_data <- fw_data %>%
@@ -77,7 +76,7 @@ fw_data <- fw_data %>%
 fw_data_ds <- fw_data %>%
   filter(group == 1)
 
-  #model relationship between alps_harmonized and cp-fw in ds group
+#model relationship between alps and cp-fw
 alps_fw_model <- lme(
   fixed  = choroid_plexus_FW.combat ~ alps_harmonized + age + de_gender + site,
   random = ~ 1 | subject,

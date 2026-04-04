@@ -1,7 +1,7 @@
 library(tidyverse)
 library(dplyr)
 library(glue)
-library(ggpattern)
+#library(ggpattern)
 library(ggtext)
 library(lme4)
 library(lmerTest)
@@ -18,21 +18,14 @@ STUDY <- "ABCDS"
 in_dir <- glue("/Users/jasonkru/Documents/outputs/{STUDY}")
 csv_dir <- glue("/Users/jasonkru/Documents/inputs/{STUDY}/csvs")
 harmonized_dir <- glue("/Users/jasonkru/Documents/outputs/{STUDY}/harmonized")
-bg_dir <- glue("/Users/jasonkru/Documents/outputs/{STUDY}/basal_ganglia_pib_sens")
+bg_dir <- glue("/Users/jasonkru/Documents/outputs/{STUDY}/basal_ganglia_fbp")
 
-#make output directories if they don't exist
-if (!dir.exists(glue("{bg_dir}"))) {
-  dir.create(glue("{bg_dir}"), recursive = TRUE)
-}
-
-
-
-#import bg pib data
-bgpib_df <- read_csv(glue("/Users/jasonkru/Documents/outputs/{STUDY}/basal_ganglia_pib/pib_bg_harmonized.csv"))
+#import bg fbp data
+bgfbp_df <- read_csv(glue("{bg_dir}/fbp_bg_harmonized.csv"))
 #split consortium_site_id into consortium and site_id
-bgpib_df$site_id <- str_split_fixed(bgpib_df$consortium_site_id, "_", 2)[,2]
+bgfbp_df$site_id <- str_split_fixed(bgfbp_df$consortium_site_id, "_", 2)[,2]
 # combine event_sequence and subject_label to make fsid
-bgpib_df <- bgpib_df %>%
+bgfbp_df <- bgfbp_df %>%
   mutate(fsid = paste0(subject_label, "_e", event_sequence)) %>%
   dplyr::select(fsid, Basal_Ganglia_SUVR.combat, site_id)
 
@@ -85,7 +78,6 @@ alps_df <- read_csv(glue("{in_dir}/alps/harmonized/alps_summary_harmonized.csv")
 alps_df <- alps_df %>%
   dplyr::select(subject, fsid, alps_harmonized)
 
-
 #drop participants with wmh in alps ROIs
 #import wmh_overlap report
 wmh_overlap <- read_csv(glue("{in_dir}/alps/alps_wmh_overlap_full_report.csv"))
@@ -101,7 +93,7 @@ wmh_overlap <- wmh_overlap %>%
 alps_df <- inner_join(alps_df, wmh_overlap, by = "fsid")
 
 #import fw data
-fw_data <- read_csv("/Users/jasonkru/Documents/outputs/ABCDS/fw/harmonized/fw_summary_harmonized.csv")
+fw_data <- read_csv("/Users/jasonkru/Documents/outputs/ABCDS/fw/harmonized/fw_eroded_summary_harmonized.csv")
 
 #make fsid column in fw_data
 fw_data <- fw_data %>%
@@ -116,7 +108,7 @@ alps_df <- inner_join(alps_df, fw_data, by = "fsid")
 
 
 #innerjoin all dataframes on fsid
-merged_df <- bgpib_df %>%
+merged_df <- bgfbp_df %>%
   inner_join(dems_df, by = "fsid") %>%
   inner_join(age_df, by = "fsid") %>%
   inner_join(alps_df, by = "fsid")
@@ -126,64 +118,17 @@ merged_df <- bgpib_df %>%
 merged_df <- merged_df %>%
   drop_na()
 
-#lmem with basal ganglia pib as outcome and alps_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_bg_bgpib <- lmer(Basal_Ganglia_SUVR.combat ~ alps_harmonized + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
-summary(lmem_bg_bgpib)
 
-#lmem with basal ganglia pib as outcome and choroid_plexus_FW.combat, age, sex as fixed effects and site_id as random effect
-lmem_cp_bgpib <- lmer(Basal_Ganglia_SUVR.combat ~ choroid_plexus_FW.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
-summary(lmem_cp_bgpib)
-
-#lmem with basal ganglia pib as outcome and alps_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_bg_bgpib <- lmer(alps_harmonized ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
-summary(lmem_bg_bgpib)
-
-#lmem with basal ganglia pib as outcome and choroid_plexus_FW.combat, age, sex as fixed effects and site_id as random effect
-lmem_cp_bgpib <- lmer(choroid_plexus_FW.combat ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
-summary(lmem_cp_bgpib)
+#lmem with basal ganglia fbp as outcome and choroid_plexus_FW.combat, age, sex as fixed effects and site_id as random effect
+lmem_cp_bgfbp <- lmer(choroid_plexus_FW.combat ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
+summary(lmem_cp_bgfbp)
 
 #using effects package plot linear relationship between alps_harmonized and Basal_Ganglia_SUVR.combat
 
-alps_effect <- Effect(c("Basal_Ganglia_SUVR.combat"), lmem_bg_bgpib)
-pred <- as.data.frame(alps_effect)
+cp_effect <- Effect(c("Basal_Ganglia_SUVR.combat"), lmem_cp_bgfbp)
+pred <- as.data.frame(cp_effect)
 
 plot <- ggplot(pred, aes(x = Basal_Ganglia_SUVR.combat, y = fit)) +
-  geom_point(
-    data = merged_df,
-    mapping = aes(
-      x = Basal_Ganglia_SUVR.combat,
-      y = alps_harmonized
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = merged_df,
-    mapping = aes(
-      x = Basal_Ganglia_SUVR.combat,
-      y = alps_harmonized,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "BG PiB SUVR",
-       y = "ALPS Index"
-       ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{bg_dir}/bg_alps_plot.svg"), plot, width = 10, height = 8)
-
-plot <- ggplot() +
   geom_point(
     data = merged_df,
     mapping = aes(
@@ -202,7 +147,8 @@ plot <- ggplot() +
     ),
     alpha = 0.3,
     inherit.aes = FALSE) +
-  labs(x = "BG PiB SUVR",
+  geom_line(size = 1.2, color = "red") +
+  labs(x = "BG FBP SUVR",
        y = "CP-FWf"
   ) +
   theme_minimal(base_size=36) +
@@ -216,29 +162,6 @@ plot <- ggplot() +
     plot.background = element_rect(fill = "white", color = NA)
   )
 
-ggsave(glue("{bg_dir}/bg_cpfw_plot.svg"), plot, width = 10, height = 8)
+ggsave(glue("{bg_dir}/bg_eroded_cpfwf_plot.svg"), plot, width = 10, height = 8)
 
-#assess different componenets of alps
-#load the dz summary csv
-dz_df <- read_csv(glue("{in_dir}/alps/harmonized/dz_summary_harmonized.csv"))
 
-#select fsid, dz_x_assoc, dz_y_proj, dz_z_assoc, dz_x_proj
-dz_df <- dz_df %>%
-  dplyr::select(fsid, dz_x_assoc, dz_y_proj, dz_z_assoc, dz_x_proj)
-
-#merge dz_df with alps_df by fsid
-alps_dz_df <- inner_join(merged_df, dz_df, by = "fsid")
-
-#lmem with dz_x_assoc as outcome and Basal_Ganglia_SUVR.combat
-
-lmem_dz_x_assoc <- lmer(dz_x_assoc ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
-summary(lmem_dz_x_assoc)
-
-lmem_dz_y_proj <- lmer(dz_y_proj ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
-summary(lmem_dz_y_proj)
-
-lmem_dz_z_assoc <- lmer(dz_z_assoc ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
-summary(lmem_dz_z_assoc)
-
-lmem_dz_x_proj <- lmer(dz_x_proj ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
-summary(lmem_dz_x_proj)

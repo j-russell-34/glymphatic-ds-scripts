@@ -42,7 +42,7 @@ bgpib_df <- bgpib_df %>%
 
 
 #import demographics data
-dems_df <- read_csv(glue("{csv_dir}/demographics.csv"))
+dems_df <- read_csv(glue("{csv_dir}/demographics_all.csv"))
 #fill gender updown on subject_label
 dems_df <- dems_df %>%
   group_by(subject_label) %>%
@@ -57,7 +57,7 @@ dems_df <- dems_df %>%
 colnames(dems_df)[which(colnames(dems_df) == "de_gender")] <- "sex"
 
 #import age at event data
-age_df <- read_csv(glue("{csv_dir}/age_at_event.csv"))
+age_df <- read_csv(glue("{csv_dir}/age_at_event_25Mar2026.csv"))
 #make fsid column in age_df
 age_df <- age_df %>%
   mutate(fsid = paste0(subject_label, "_e", event_sequence)) %>%
@@ -178,4 +178,29 @@ plot <- ggplot(pred, aes(x = Basal_Ganglia_SUVR.combat, y = fit)) +
   )
 
 ggsave(glue("{bg_dir}/bg_alps_plot.svg"), plot, width = 10, height = 8)
+
+#assess different componenets of alps
+#load the dz summary csv
+dz_df <- read_csv(glue("{in_dir}/alps/harmonized/dz_summary_harmonized.csv"))
+
+#select fsid, dz_x_assoc, dz_y_proj, dz_z_assoc, dz_x_proj
+dz_df <- dz_df %>%
+  dplyr::select(fsid, dz_x_assoc, dz_y_proj, dz_z_assoc, dz_x_proj)
+
+#merge dz_df with alps_df by fsid
+alps_dz_df <- inner_join(merged_df, dz_df, by = "fsid")
+
+#lmem with dz_x_assoc as outcome and Basal_Ganglia_SUVR.combat
+
+lmem_dz_x_assoc <- lmer(dz_x_assoc ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
+summary(lmem_dz_x_assoc)
+
+lmem_dz_y_proj <- lmer(dz_y_proj ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
+summary(lmem_dz_y_proj)
+
+lmem_dz_z_assoc <- lmer(dz_z_assoc ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
+summary(lmem_dz_z_assoc)
+
+lmem_dz_x_proj <- lmer(dz_x_proj ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = alps_dz_df, REML = TRUE)
+summary(lmem_dz_x_proj)
 

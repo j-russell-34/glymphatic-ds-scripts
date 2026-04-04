@@ -29,16 +29,6 @@ colnames(alps_df)[colnames(alps_df) == "alps_harmonized"] <- "alps"
 alps_df <- alps_df %>%
   separate(scan_type_site.x, into = c("scan_type", "site"), sep = "_", extra = "merge")
 
-#load the volumetric data
-volumetric_df <- read_csv(glue("{harmonized_dir}/volumetrics_harmonized.csv"))
-
-#nromalize bf volume
-volumetric_df$basal_forebrain_norm <- (volumetric_df$harmonized_left_basal_forebrain + volumetric_df$harmonized_right_basal_forebrain) / volumetric_df$harmonized_eTIV
-
-#remove age and subject from volumetric_df
-volumetric_df <- volumetric_df %>%
-  dplyr::select(-age, -subject)
-
 #load tau data
 tau_df <- read_csv(glue("{harmonized_dir}/tau_harmonized.csv"))
 
@@ -102,61 +92,7 @@ alps_df <- inner_join(alps_df, wmh_overlap, by = "fsid")
 alps_lmem <- lme(fixed = alps ~ age + sex + site, random = ~1|subject, data = alps_df, method = "REML")
 summary(alps_lmem)
 
-#fit segmented model with constrained pre-breakpoint slope
-#first fit a baseline model
-alps_lmem_baseline <- lme(fixed = alps ~ sex +site, random = ~1|subject, data = alps_df, method = "REML")
 
-#then fit a segmented model
-alps_seg_model <- segmented.lme(obj = alps_lmem_baseline, 
-                              seg.Z = ~ age,
-                              psi = 45,
-                              random = list(subject=pdDiag(~1)),
-                              data = alps_df,
-                              control = seg.control(display=TRUE, it.max=100, tol=1e-6, n.boot=50))
-
-summary(alps_seg_model)
-
-#plot the linear model ------------------------------------------------------
-#alps
-alps_effect <- Effect("age", alps_lmem)
-pred <- as.data.frame(alps_effect)
-
-plot <- ggplot(pred, aes(x = age, y = fit)) +
-  geom_point(
-    data = alps_df,
-    mapping = aes(
-      x = age,
-      y = alps,
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = alps_df,
-    mapping = aes(
-      x = age,
-      y = alps,
-      group = subject,
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  #geom_ribbon(aes(ymin = lower, ymax = upper, fill = prefunclevel), alpha = 0.1) +
-  labs(x = "Age",
-       y = "ALPS Index") +
-  theme_minimal(base_size = 36) +
-  theme(
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-print(plot)
-
-ggsave(glue("{out_dir}/alps/alps_lmm_plot.svg"), width = 10, height = 8)
 
 #merge alps_df and amyloid_df
 alps_amyloid_df <- inner_join(alps_df, amyloid_df, by = "fsid")
@@ -170,21 +106,7 @@ amyloid_alps_lmem <- lme(fixed = alps ~ Centiloids + age + sex + site, random = 
 summary(amyloid_alps_lmem)
 intervals(amyloid_alps_lmem, which = "fixed")
 
-#join alps with volumetric data
-alps_volumetric_df <- inner_join(alps_df, volumetric_df, by = "fsid")
 
-#lmem comparing age and alps and volumetric
-#alps_volumetric_lmem <- lme(fixed = basal_forebrain_norm ~ alps + age + sex + site, random = ~1|subject, data = alps_volumetric_df, method = "REML")
-#summary(alps_volumetric_lmem)
-
-#lmem comparing ALPs and fw
-alps_cp_lmem <- lme(fixed = alps ~ choroid_plexus_FW.combat + age +  sex + site, random = ~1|subject, data = alps_df, method = "REML")
-summary(alps_cp_lmem)
-intervals(alps_cp_lmem, which = "fixed")
-
-#lmem comparing ALPs and wm FW
-#alps_wm_lmem <- lme(fixed = alps ~ wm_FW.combat + age +  sex + site, random = ~1|subject, data = alps_df, method = "REML")
-#summary(alps_wm_lmem)
 
 #join tau data
 alps_tau_df <- inner_join(alps_df, tau_df, by = "fsid")
@@ -193,216 +115,26 @@ alps_tau_lmem <- lme(fixed = alps ~ metatemporal + age.x + sex + site, random = 
 summary(alps_tau_lmem)
 intervals(alps_tau_lmem, which = "fixed")
 
-#relationships between WM and amyloid and tau
-#lmem comparing wm FW and amyloid
-#wm_amyloid_lmem <- lme(fixed = wm_FW.combat ~ Centiloids + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
-#summary(wm_amyloid_lmem)
+
 #lmem comparing cp FW and amyloid
 cp_amyloid_lmem <- lme(fixed = choroid_plexus_FW.combat ~ Centiloids + age + sex + site, random = ~1|subject, data = alps_amyloid_df, method = "REML")
 summary(cp_amyloid_lmem)
 intervals(cp_amyloid_lmem, which = "fixed")
-#lmem comparing wm FW and tau
-#wm_tau_lmem <- lme(fixed = wm_FW.combat ~ metatemporal + age.x + sex + site, random = ~1|subject, data = alps_tau_df, method = "REML")  
-#summary(wm_tau_lmem)
+
 #lmem comparing cp FW and tau
 cp_tau_lmem <- lme(fixed = choroid_plexus_FW.combat ~ metatemporal + age.x + sex + site, random = ~1|subject, data = alps_tau_df, method = "REML")
 summary(cp_tau_lmem)
 intervals(cp_tau_lmem, which = "fixed")
 
-#plot sig WMH relationships with alps, amyloid and tau --------------------------------------
-#alps vs cp FW
-alps_cp_effect <- Effect("choroid_plexus_FW.combat", alps_cp_lmem)
-pred <- as.data.frame(alps_cp_effect)
-
-ggplot(pred, aes(x = choroid_plexus_FW.combat, y = fit)) +
-  geom_point(
-    data = alps_df,
-    mapping = aes(
-      x = choroid_plexus_FW.combat,
-      y = alps,
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  #join lines for each subject
-  geom_line(
-    data = alps_df,
-    mapping = aes(
-      x = choroid_plexus_FW.combat,
-      y = alps,
-      group = subject,
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "CP-FWf",
-       y = "ALPS Index") +
-  theme_minimal(base_size = 36) +
-  theme(
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{out_dir}/alps/alps_cp_fw_lmm_plot.svg"), width = 10, height = 8)
-
-
-#cp FW vs amyloid
-cp_amyloid_effect <- Effect("Centiloids", cp_amyloid_lmem)
-pred <- as.data.frame(cp_amyloid_effect)
-
-ggplot(pred, aes(x = Centiloids, y = fit)) +
-  geom_point(
-    data = alps_amyloid_df,
-    mapping = aes(
-      x = Centiloids,
-      y = choroid_plexus_FW.combat,
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  #join lines for each subject
-  geom_line(
-    data = alps_amyloid_df,
-    mapping = aes(
-      x = Centiloids,
-      y = choroid_plexus_FW.combat,
-      group = subject,
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Centiloids",
-       y = "CP-FWf") +
-  theme_minimal(base_size = 36) +
-  theme(
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-ggsave(glue("{out_dir}/alps/amy_cp_fw_lmm_plot.svg"), width = 10, height = 8)
-
-#alps amyloid
-ggplot() +
-  geom_point(
-    data = alps_amyloid_df,
-    mapping = aes(
-      x = Centiloids,
-      y = alps,
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  #join lines for each subject
-  geom_line(
-    data = alps_amyloid_df,
-    mapping = aes(
-      x = Centiloids,
-      y = alps,
-      group = subject,
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  labs(x = "Centiloids",
-       y = "ALPS Index") +
-  theme_minimal(base_size = 36) +
-  theme(
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-ggsave(glue("{out_dir}/alps/amy_alps_plot.svg"), width = 10, height = 8)
-
-#plot cp FW vs tau
-cp_tau_effect <- Effect("metatemporal", cp_tau_lmem)
-pred <- as.data.frame(cp_tau_effect)
-
-ggplot(pred, aes(x = metatemporal, y = fit)) +
-  geom_point(
-    data = alps_tau_df,
-    mapping = aes(
-      x = metatemporal,
-      y = choroid_plexus_FW.combat,
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  #join lines for each subject
-  geom_line(
-    data = alps_tau_df,
-    mapping = aes(
-      x = metatemporal,
-      y = choroid_plexus_FW.combat,
-      group = subject,
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Tau",
-       y = "CP-FWf") +
-  theme_minimal(base_size = 36) +
-  theme(
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-ggsave(glue("{out_dir}/alps/tau_cp_fw_lmm_plot.svg"), width = 10, height = 8)
-
-#ALPS tau
-ggplot() +
-  geom_point(
-    data = alps_tau_df,
-    mapping = aes(
-      x = metatemporal,
-      y = alps,
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  #join lines for each subject
-  geom_line(
-    data = alps_tau_df,
-    mapping = aes(
-      x = metatemporal,
-      y = alps,
-      group = subject,
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  labs(x = "Tau",
-       y = "ALPS Index") +
-  theme_minimal(base_size = 36) +
-  theme(
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-ggsave(glue("{out_dir}/alps/tau_alps_lmm_plot.svg"), width = 10, height = 8)
-
 
 #import mCRT cognitive data
-mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall.csv")
+mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall_25Mar2026.csv")
 
 #import dsmse data
 dsmse_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Down_Syndrome_Mental_Status_Exam.csv")
 
 #import premorbid iq data
-premorbid_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Premorbid_Functioning_Level.csv")
+premorbid_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Premorbid_Functioning_Level_25Mar2026.csv")
 
 #make fsid column by pasting subject_label and event_sequence with _e in between
 premorbid_data <- premorbid_data %>%
@@ -476,45 +208,6 @@ alps_dsmse_mod <- lme(
   method = "REML"
 )
 summary(alps_dsmse_mod)
-intervals(alps_dsmse_mod, which = "fixed")
-
-#create prediction dataframe for mcrt model
-pred <- as.data.frame(Effect("choroid_plexus_FW.combat", alps_mcrt_mod))
-
-#plot choroid_plexus_FW.combat by mcrt trs with effect line
-ggplot(data=pred, aes(x = choroid_plexus_FW.combat, y = fit)) +
-  geom_point(data = alps_df_cog, aes(x = choroid_plexus_FW.combat, y = trs), alpha = 0.5, inherit.aes = FALSE) +
-  labs(x = "CP-FWf", y = "mCRT Total Recall Score") +
-  theme_minimal(base_size = 36) +
-  geom_line(data = pred, size = 1.2, color = "red") +
-  geom_line(data = alps_df_cog, aes(x = choroid_plexus_FW.combat, y = trs, group = subject), alpha = 0.3, inherit.aes = FALSE) +
-  theme(
-    axis.title.y = element_markdown(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA),
-  )
-
-ggsave(glue("{out_dir}/alps/choroid_plexus_FW_mcrt_plot.svg"), width = 10, height = 8)
-
-#plot choroid_plexus_FW.combat by dsmse_to2
-ggplot() +
-  geom_point(data = alps_df_cog, aes(x = choroid_plexus_FW.combat, y = dsmse_to2), alpha = 0.5, inherit.aes = FALSE) +
-  labs(x = "CP-FWf", y = "DSMSE Total Score") +
-  theme_minimal(base_size = 36) +
-  geom_line(data = alps_df_cog, aes(x = choroid_plexus_FW.combat, y = dsmse_to2, group = subject), alpha = 0.3, inherit.aes = FALSE) +
-  theme(
-    axis.title.y = element_markdown(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA),
-  )
-
-ggsave(glue("{out_dir}/alps/choroid_plexus_FW_dsmse_plot.svg"), width = 10, height = 8)
 
 
 #get demographics of main and subgroups
