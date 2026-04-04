@@ -31,7 +31,7 @@ bgfbp_df <- bgfbp_df %>%
 
 
 #import demographics data
-dems_df <- read_csv(glue("{csv_dir}/demographics.csv"))
+dems_df <- read_csv(glue("{csv_dir}/demographics_all.csv"))
 #fill gender updown on subject_label
 dems_df <- dems_df %>%
   group_by(subject_label) %>%
@@ -46,7 +46,7 @@ dems_df <- dems_df %>%
 colnames(dems_df)[which(colnames(dems_df) == "de_gender")] <- "sex"
 
 #import age at event data
-age_df <- read_csv(glue("{csv_dir}/age_at_event.csv"))
+age_df <- read_csv(glue("{csv_dir}/age_at_event_25Mar2026.csv"))
 #make fsid column in age_df
 age_df <- age_df %>%
   mutate(fsid = paste0(subject_label, "_e", event_sequence)) %>%

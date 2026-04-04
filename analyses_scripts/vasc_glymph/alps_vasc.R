@@ -22,7 +22,7 @@ vascular_dir <- glue("/Users/jasonkru/Documents/outputs/{STUDY}/vascular")
 
 
 #import demographics data
-dems_df <- read_csv(glue("{csv_dir}/demographics.csv"))
+dems_df <- read_csv(glue("{csv_dir}/demographics_all.csv"))
 #fill gender updown on subject_label
 dems_df <- dems_df %>%
   group_by(subject_label) %>%
@@ -37,7 +37,7 @@ dems_df <- dems_df %>%
 colnames(dems_df)[which(colnames(dems_df) == "de_gender")] <- "sex"
 
 #import age at event data
-age_df <- read_csv(glue("{csv_dir}/age_at_event.csv"))
+age_df <- read_csv(glue("{csv_dir}/age_at_event_25Mar2026.csv"))
 #make fsid column in age_df
 age_df <- age_df %>%
   mutate(fsid = paste0(subject_label, "_e", event_sequence)) %>%
@@ -115,7 +115,7 @@ wmh_df <- read_csv(glue("{in_dir}/vascular/wmh_harmonized.csv"))
 #make fsid column in pvs_df
 pvs_df <- pvs_df %>%
   mutate(fsid = paste0(subject_label, "_e", event_sequence)) %>%
-  dplyr::select(fsid, pvs_score, bg_pvs_score, cortical_pvs_score)
+  dplyr::select(fsid, event_sequence, pvs_score, bg_pvs_score, cortical_pvs_score)
 
 #inner join merged_df and pvs_df by fsid
 pvs_df <- inner_join(merged_df, pvs_df, by = "fsid")
@@ -132,184 +132,19 @@ pvs_df <- inner_join(pvs_df, wmh_df, by = "fsid")
 pvs_df <- pvs_df %>%
   drop_na()
 
-#select BL visits as too few participants with follow-up data
-pvs_df <- pvs_df %>%
-  group_by(subject) %>%
-  filter(event_sequence == min(event_sequence)) %>%
-  ungroup()
 
 #lmem with alps as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
 lmem_pvs <- lme(alps_harmonized ~ pvs_score + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
 summary(lmem_pvs)
 intervals(lmem_pvs, which = "fixed")
 
-#lmem with choroid_plexus_FW as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
-lmem_pvs_cpfwf <- lme(choroid_plexus_FW.combat ~ pvs_score + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
-summary(lmem_pvs_cpfwf)
-intervals(lmem_pvs_cpfwf, which = "fixed")
 
 #lmem with alps as outcome and total_wmh_harmonized, age, sex as fixed effects and site_id as random effect
 lmem_wmh <- lme(alps_harmonized ~ total_wmh_harmonized + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
 summary(lmem_wmh)
 intervals(lmem_wmh, which = "fixed")
 
-#lmem with choroid_plexus_FW as outcome and total_wmh_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_wmh_cpfwf <- lme(choroid_plexus_FW.combat ~ total_wmh_harmonized + age + sex + site_id, random = ~1|subject, data = pvs_df, method="REML")
-summary(lmem_wmh_cpfwf)
-intervals(lmem_wmh_cpfwf, which = "fixed")
 
-#using effects package plot linear relationship
-
-cp_effect <- Effect(c("total_wmh_harmonized"), lmem_wmh_cpfwf)
-pred <- as.data.frame(cp_effect)
-
-plot <- ggplot(pred, aes(x = total_wmh_harmonized, y = fit)) +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = choroid_plexus_FW.combat
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = choroid_plexus_FW.combat,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total WMH Volume",
-       y = "CP-FWf"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{vascular_dir}/total_wmh_cpfwf_plot.svg"), plot, width = 10, height = 8)
-
-#plot non-sig effects as well for completeness
-plot <- ggplot() +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = alps_harmonized
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = alps_harmonized,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total WMH Volume",
-       y = "ALPS Index"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{vascular_dir}/total_wmh_alps_plot.svg"), plot, width = 10, height = 8)
-
-
-#plot non-sig effects as well for completeness
-plot <- ggplot() +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = alps_harmonized
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = alps_harmonized,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total PVS Score",
-       y = "ALPS Index"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{vascular_dir}/total_pvs_alps_plot.svg"), plot, width = 10, height = 8)
-
-#plot non-sig effects as well for completeness
-plot <- ggplot() +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = choroid_plexus_FW.combat
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = choroid_plexus_FW.combat,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total PVS Score",
-       y = "CP-FWf"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{vascular_dir}/total_pvs_cpfwf_plot.svg"), plot, width = 10, height = 8)
 
 #get demographics of main and subgroups
 #import race data and apoe4 status
@@ -354,7 +189,7 @@ pvs_df <- inner_join(pvs_df, race_data, by = "fsid")
 #make baseline only dataframe for demographics from minimum event_sequence
 pvs_df_bl <- pvs_df %>%
   group_by(subject) %>%
-  filter(event_sequence == min(event_sequence)) %>%
+  filter(event_sequence.x == min(event_sequence.x)) %>%
   ungroup()
 
 #count unique subjects in pvs_df

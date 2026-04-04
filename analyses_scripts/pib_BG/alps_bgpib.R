@@ -127,14 +127,6 @@ merged_df <- merged_df %>%
   drop_na()
 
 #lmem with basal ganglia pib as outcome and alps_harmonized, age, sex as fixed effects and site_id as random effect
-lmem_bg_bgpib <- lmer(Basal_Ganglia_SUVR.combat ~ alps_harmonized + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
-summary(lmem_bg_bgpib)
-
-#lmem with basal ganglia pib as outcome and choroid_plexus_FW.combat, age, sex as fixed effects and site_id as random effect
-lmem_cp_bgpib <- lmer(Basal_Ganglia_SUVR.combat ~ choroid_plexus_FW.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
-summary(lmem_cp_bgpib)
-
-#lmem with basal ganglia pib as outcome and alps_harmonized, age, sex as fixed effects and site_id as random effect
 lmem_bg_bgpib <- lmer(alps_harmonized ~ Basal_Ganglia_SUVR.combat + age + sex + site_id + (1|subject), data = merged_df, REML = TRUE)
 summary(lmem_bg_bgpib)
 

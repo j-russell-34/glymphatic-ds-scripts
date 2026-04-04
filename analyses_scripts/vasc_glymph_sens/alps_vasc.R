@@ -33,7 +33,7 @@ b1000_only_scans <- read_csv(glue("{alps_dir}/b1000_subs.csv"))
 
 
 #import demographics data
-dems_df <- read_csv(glue("{csv_dir}/demographics.csv"))
+dems_df <- read_csv(glue("{csv_dir}/demographics_all.csv"))
 #fill gender updown on subject_label
 dems_df <- dems_df %>%
   group_by(subject_label) %>%
@@ -48,7 +48,7 @@ dems_df <- dems_df %>%
 colnames(dems_df)[which(colnames(dems_df) == "de_gender")] <- "sex"
 
 #import age at event data
-age_df <- read_csv(glue("{csv_dir}/age_at_event.csv"))
+age_df <- read_csv(glue("{csv_dir}/age_at_event_25Mar2026.csv"))
 #make fsid column in age_df
 age_df <- age_df %>%
   mutate(fsid = paste0(subject_label, "_e", event_sequence)) %>%
@@ -150,11 +150,6 @@ pvs_df <- pvs_df %>%
 pvs_df <- pvs_df %>%
   separate(fsid, into = c("subject", "event_sequence"), sep = "_e")
 
-#select BL visits as too few follow-up visits
-pvs_df <- pvs_df %>%
-  group_by(subject) %>%
-  filter(event_sequence == min(event_sequence)) %>%
-  ungroup()
 
 #lmem with alps as outcome and pvs_score, age, sex as fixed effects and site_id as random effect
 lm_pvs <- lm(alps_harmonized ~ pvs_score + age + sex + site_id, data = pvs_df)
@@ -167,82 +162,6 @@ confint(lm_pvs, level = 0.95)
 lmem_wmh <- lm(alps_harmonized ~ total_wmh_harmonized + age + sex + site_id, data = pvs_df)
 summary(lmem_wmh)
 confint(lmem_wmh, level = 0.95)
-
-
-
-#plot non-sig effects as well for completeness
-plot <- ggplot() +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = alps_harmonized
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = total_wmh_harmonized,
-      y = alps_harmonized,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total WMH Volume",
-       y = "ALPS Index"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{out_dir}/total_wmh_alps_plot.svg"), plot, width = 10, height = 8)
-
-#plot non-sig effects as well for completeness
-plot <- ggplot() +
-  geom_point(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = alps_harmonized
-    ),
-    alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  geom_line(
-    data = pvs_df,
-    mapping = aes(
-      x = pvs_score,
-      y = alps_harmonized,
-      group = subject
-    ),
-    alpha = 0.3,
-    inherit.aes = FALSE) +
-  geom_line(size = 1.2, color = "red") +
-  labs(x = "Total PVS Score",
-       y = "ALPS Index"
-  ) +
-  theme_minimal(base_size=36) +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(face = "bold"),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA)
-  )
-
-ggsave(glue("{out_dir}/total_pvs_alps_plot.svg"), plot, width = 10, height = 8)
 
 
 #get demographics of main and subgroups
@@ -282,13 +201,17 @@ race_data <- race_data %>%
 race_data <- race_data %>%
   dplyr::select(fsid, de_race, apoe_status, event_sequence)
 
+#make fsid in pvs_df by pasting subject and event_sequence with _e in between
+pvs_df <- pvs_df %>%
+  mutate(fsid = paste(subject, event_sequence, sep = "_e"))
+
 #inner join pvs_df and race_data by fsid
 pvs_df <- inner_join(pvs_df, race_data, by = "fsid")
 
 #make baseline only dataframe for demographics from minimum event_sequence
 pvs_df_bl <- pvs_df %>%
   group_by(subject) %>%
-  filter(event_sequence == min(event_sequence)) %>%
+  filter(event_sequence.x == min(event_sequence.x)) %>%
   ungroup()
 
 #count unique subjects in pvs_df
@@ -318,3 +241,4 @@ pvs_df <- pvs_df %>%
   group_by(subject) %>%
   mutate(visits_per_subject = n()) %>%
   ungroup()
+

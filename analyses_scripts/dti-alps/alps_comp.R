@@ -315,13 +315,13 @@ intervals(bl_comparison_fam, which = "fixed")
 
 
 #import mCRT cognitive data
-mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall.csv")
+mcrt_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Cued_Recall_25Mar2026.csv")
 
 #import dsmse data
 dsmse_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Down_Syndrome_Mental_Status_Exam.csv")
 
 #import premorbid iq data
-premorbid_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Premorbid_Functioning_Level.csv")
+premorbid_data <- read_csv("/Users/jasonkru/Documents/inputs/ABCDS/csvs/Premorbid_Functioning_Level_25Mar2026.csv")
 
 #make fsid column by pasting subject_label and event_sequence with _e in between
 premorbid_data <- premorbid_data %>%
